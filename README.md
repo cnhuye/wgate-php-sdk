@@ -23,6 +23,8 @@ git clone https://github.com/cnhuye/wechat-php-sdk.git
 ### 调用方式
 
 ```php
+  require_once 'wgate-php-sdk/wgate.class.php';
+  
   $options = array(
     "key"=>$wgate_key, // 微信之门中生成的KEY
     "secret"=>$wgate_secret, // 相应的secret
