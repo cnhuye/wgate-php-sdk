@@ -50,6 +50,7 @@ class WGate
 	private $access_token;
 	private $access_token_expire_at;
 	private $postxml;
+	private $jsapi_ticket;
 
 	public $debug =  false;
 	public $errCode = 0;
@@ -222,9 +223,9 @@ class WGate
 				return false;
 			}
 			$this->access_token = $json['token'];
-			$expire = $json['expire_at'] ? intval($json['expire_at'])-time()-100 : 3600;
+			$expire = $json['expire_at'];
 			$this->access_token_expire_at = $expire;
-			$this->setCache($authname,$this->access_token,$expire);
+			$this->setCache($authname,$this->access_token,time()-intval($expire));
 			return $this->access_token;
 		}
 		return false;
@@ -249,10 +250,11 @@ class WGate
 	public function createPayment($options){
 		if (!$this->wgate_token && !$this->getWgateToken()) return false;
     
-    $sign = $this->genSignature($options,"md5");
+    $options = array_merge($options,["token"=>$this->wgate_token,"weixin_account_id"=>$this->weixin_account_id]);
+    $sign = $this->genSignature($options,"md5","&secret=".$this->secret);
     $options["sign"] = $sign;
-    $qs = http_build_query(["token"=>$this->wgate_token,"weixin_account_id"=>$this->weixin_account_id]);
-    $result = $this->http_post(self::API_URL_PREFIX.self::API_PAYMENTS_URL.'?'.$qs,$options);
+    $qs = http_build_query($options);
+    $result = $this->http_post(self::API_URL_PREFIX.self::API_PAYMENTS_URL,$qs);
 		if ($result)
 		{
 			$json = json_decode($result,true);
@@ -351,9 +353,9 @@ class WGate
 				return false;
 			}
 			$this->jsapi_ticket = $json['ticket'];
-			$expire = $json['expire_at'] ? time()-intval($json['expire_at'])-100 : 3600;
+			$expire = $json['expire_at'];
 			$this->jsapi_ticket_expire_at = $expire;
-			$this->setCache($authname,$this->jsapi_ticket,$expire);
+			$this->setCache($authname,$this->jsapi_ticket,time()-intval($expire));
 			return $this->jsapi_ticket;
 		}
 		return false;
@@ -378,7 +380,7 @@ class WGate
 	 * @return array|bool 返回签名字串
 	 */
 	public function getJsSign($url, $timestamp=0, $noncestr=''){
-	    if (!$this->jsapi_ticket && !$this->getJsTicket($this->appid) || !$url) return false;
+	    if (!$this->jsapi_ticket && !$this->getJsApiTicket($this->appid) || !$url) return false;
 	    if (!$timestamp)
 	        $timestamp = time();
 	    if (!$noncestr)
@@ -433,9 +435,9 @@ class WGate
 				return false;
 			}
 			$this->card_api_ticket = $json['ticket'];
-			$expire = $json['expire_at'] ? time()-intval($json['expire_at'])-100 : 3600;
+			$expire = $json['expire_at'];
 			$this->card_api_ticket_expire_at = $expire;
-			$this->setCache($authname,$this->card_api_ticket,$expire);
+			$this->setCache($authname,$this->card_api_ticket,time()-intval($expire));
 			return $this->card_api_ticket;
 		}
 		return false;
@@ -573,7 +575,7 @@ class WGate
 	 * @param string $method 签名方法
 	 * @return boolean|string 签名值
 	 */
-	public function genSignature($arrdata,$method="sha1") {
+	public function genSignature($arrdata,$method="sha1",$suffix=null) {
 		if (!function_exists($method)) return false;
 		ksort($arrdata);
 		$paramstring = "";
@@ -584,6 +586,9 @@ class WGate
 			else
 				$paramstring .= "&" . $key . "=" . $value;
 		}
+		$paramstring = $paramstring.$suffix;
+// print_r($paramstring);
+// echo "\n";
 		$Sign = $method($paramstring);
 		return $Sign;
 	}
